@@ -47,6 +47,8 @@ class ChessApp:
         return 0
 
     def clear(self) -> None:
+        if self.board_view is not None:
+            self.board_view.cancel_animation()
         self.board_view = None
         self.moves_box = None
         self.match_list = None
@@ -195,9 +197,11 @@ class ChessApp:
         move = self.session.move_selected_piece_to(square)
         if move:
             self.after_human_move()
+            self.draw_current_board()
+            self.show_capture_animation_if_needed(self.session.last_move_was_capture)
         else:
             self.select_square(square)
-        self.draw_current_board()
+            self.draw_current_board()
 
     def select_square(self, square: chess.Square) -> None:
         if self.session.select(square):
@@ -226,12 +230,15 @@ class ChessApp:
             self.root.after(100, self.poll_ai_move)
             return
 
+        was_capture = False
         if isinstance(result, Exception):
             messagebox.showerror("Stockfish", str(result))
         else:
             self.session.push_engine_move(result)
+            was_capture = self.session.last_move_was_capture
         self.update_game_status()
         self.draw_current_board()
+        self.show_capture_animation_if_needed(was_capture)
 
     def save_current_game(self) -> None:
         SAVE_ROOT.mkdir(exist_ok=True)
@@ -311,10 +318,15 @@ class ChessApp:
     def next_viewer_step(self) -> None:
         if self.replay is None:
             return
-        self.replay.next()
+        advanced = self.replay.next()
         self.refresh_moves(self.replay.board)
         self.status_var.set(self.replay.status_text())
         self.draw_current_board()
+        self.show_capture_animation_if_needed(advanced and self.replay.last_move_was_capture)
+
+    def show_capture_animation_if_needed(self, was_capture: bool) -> None:
+        if was_capture and self.board_view is not None:
+            self.board_view.show_random_capture_animation()
 
     def update_game_status(self) -> None:
         self.status_var.set(self.session.status_text())
