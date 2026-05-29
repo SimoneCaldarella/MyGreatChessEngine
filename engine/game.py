@@ -27,11 +27,13 @@ class ChessSession:
         self.mode = mode
         self.board = chess.Board()
         self.selection = MoveSelection()
+        self.last_move_was_capture = False
 
     def reset(self, mode: GameMode) -> None:
         self.mode = mode
         self.board = chess.Board()
         self.selection.clear()
+        self.last_move_was_capture = False
 
     def can_human_move(self) -> bool:
         if self.board.is_game_over():
@@ -59,13 +61,16 @@ class ChessSession:
         move = self._candidate_move(from_square, to_square)
         if move not in self.board.legal_moves:
             return None
+        self.last_move_was_capture = self.board.is_capture(move)
         self.board.push(move)
         self.selection.clear()
         return move
 
     def push_engine_move(self, move: chess.Move | None) -> bool:
         if move is None or move not in self.board.legal_moves:
+            self.last_move_was_capture = False
             return False
+        self.last_move_was_capture = self.board.is_capture(move)
         self.board.push(move)
         return True
 
@@ -97,11 +102,15 @@ class PgnReplay:
         self.board = game.board()
         self.moves = list(game.mainline_moves())
         self.index = 0
+        self.last_move_was_capture = False
 
     def next(self) -> bool:
         if self.index >= len(self.moves):
+            self.last_move_was_capture = False
             return False
-        self.board.push(self.moves[self.index])
+        move = self.moves[self.index]
+        self.last_move_was_capture = self.board.is_capture(move)
+        self.board.push(move)
         self.index += 1
         return True
 
